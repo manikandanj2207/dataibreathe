@@ -47,6 +47,12 @@ from sklearn.model_selection import train_test_split, cross_val_score, cross_val
 from sklearn import linear_model;
 
 from sklearn.svm import SVC;
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier;
+
+from sklearn.base import BaseEstimator, TransformerMixin;
+from sklearn.pipeline import make_pipeline, FeatureUnion;
+
+from sklearn.feature_extraction.text import CountVectorizer;
 
 import matplotlib;
 import matplotlib.pyplot as plt;
@@ -82,8 +88,8 @@ def convert2pandas_df(x_array=None, y=None, feature_names=None, target_name=None
 
     assert x_array.shape[1] == len(feature_names);  # assert the length of x_array and column label length are same;
     assert x_array.shape[0] == len(y); # The target length should equal the features length;
-    assert type(y) == type([]); # Target should of the type list;
-    assert type(feature_names) == type([]); # feature_names should of the type list;
+    assert isinstance(y, list); # Target should of the type list;
+    assert isinstance(feature_names, list); # feature_names should of the type list;
 
     data_dict = {};
     data_dict[target_name] = y;
@@ -155,6 +161,21 @@ def cost_accuracy(actual, prediction):
     assert len(actual) == len(prediction);
 
     return round((np.sum(actual == prediction) / len(actual)) , 4);
+
+
+class ColumnTypeFilter(BaseEstimator, TransformerMixin):
+    """ Custom transformer to select all columns of a particular type in a pandas dataframes """;
+
+    def __init__(self, dtype):
+        self.dtype = dtype;
+
+    def fit(self, X, y=None):
+        return self;
+
+    def transform(self, X):
+        assert isinstance(X, pd.DataFrame);
+        return X.select_dtypes(include=[self.dtype]);
+
 
 def main(logger=None):
     ''' Main routine to call the entire process flow ''';
@@ -288,20 +309,31 @@ def main(logger=None):
 
     # TODO: DONE; 008; Grid-Search ;
 
-    tuned_parameters = [{'kernel': ['rbf'], 'gamma': [1e-3, 1e-4], 'C': [1, 10, 100, 1000]},
-                        {'kernel': ['linear'], 'C': [1, 10, 100, 1000]}];
+    # tuned_parameters = [{
+    #                      'n_estimators' : [1, 10, 100, 500, 1000, 2000],
+    #                      'max_depth' : [10, 20],
+    #                      'max_features' : [0.80, 0.40],
+    #                      'random_state' : [111]
+    #                      }];
 
-    clf = GridSearchCV(SVC(), tuned_parameters, cv=5, scoring=accuracy_scorer);
+    tuned_parameters = [{
+                         'n_estimators' : [1, 10],
+                         'max_depth' : [10, 20],
+                         'max_features' : [0.80, 0.40],
+                         'random_state' : [111]
+                         }];
+
+    clf = GridSearchCV(RandomForestClassifier(), tuned_parameters, cv=5, scoring=accuracy_scorer);
     clf.fit(X_train, y_train);
 
-    logger.info(f'Best parameters set found on development set: {clf.best_params_}');
+    logger.info(f'Best parameters set found on development set: {clf.best_score_} {clf.best_params_}');
     logger.info('');
     logger.info('Grid scores on development set:');
     logger.info('');
     means = clf.cv_results_['mean_test_score'];
     stds = clf.cv_results_['std_test_score'];
     for mean, std, params in zip(means, stds, clf.cv_results_['params']):
-        logger.info(f'{round(mean,2)} (+/-{round(std*2,2)}) for {params}');
+        logger.info(f'{round(mean,3)} (+/-{round(std*2,2)}) for {params}');
     logger.info('');
 
     logger.info('Detailed classification report:');
@@ -313,19 +345,95 @@ def main(logger=None):
     logger.info(f'{metrics.classification_report(y_true, y_pred)}');
     logger.info('');
 
-    # TODO: YTS; 009; Customer Transformer for the pipeline ;
+    imp_percentage = round((clf.best_score_ - DummyClassifier_mean) / DummyClassifier_mean, 4);
+    logger.info(f'DummyClassifier accuracy : {DummyClassifier_mean}');
+    logger.info(f'GridSearchCV RandomForestClassifier accuracy : {clf.best_score_}');
+    logger.info(f'The improvement over the DummyClassifier is : {imp_percentage}');
+
+    # logger.info(f'{clf.best_estimator_}');
+
+    # TODO: DONE; 009; Customer Transformer for the pipeline ;
+    # reference : https://ramhiser.com/post/2018-04-16-building-scikit-learn-pipeline-with-pandas-dataframe/
+    # http://philipmgoddard.com/modeling/sklearn_pipelines
+
+    ctf = ColumnTypeFilter(np.number);
+    ctf.fit_transform(X_train).head();
 
     # TODO: YTS; 010; Pipeline ;
 
-    # TODO: YTS; 011; One-hot encoder; Label Encoder; Binary Encoder;
+    custom_pipeline = make_pipeline(
+            FeatureUnion(transformer_list=[
+                ('StdScl', make_pipeline(
+                    ColumnTypeFilter(np.number),
+                    preprocessing.StandardScaler()
+                )),
+                ('MMScl', make_pipeline(
+                    ColumnTypeFilter(np.number),
+                    preprocessing.MinMaxScaler()
+                ))
+            ])
+    );
 
-    # TODO: YTS; 012; Feature Extraction from image and text;
+    custom_pipeline.fit(X_train);
+    X_test_transformed = custom_pipeline.transform(X_test);
 
-    # TODO: YTS; 013; Ensemble and BaseClone;
+    logger.info(f'{X_test.shape} {type(X_test_transformed)} {X_test_transformed.shape}');
 
-    # TODO: YTS; 014; Utils for dumping and loading models;
+    # TODO: DONE; 011; Ensemble (VotingClassifier) and BaseClone;
 
+    ensemble_clf = VotingClassifier(estimators=[
+                            ('dummy', dummy_classifier),
+                            ('logistic', lr),
+                            # ('supportvector', SVC(probability=True)),
+                            ('randomforest', RandomForestClassifier())],
+                            voting='soft');
 
+    ensemble_clf.fit(X_train, y_train);
+    ensemble_clf_accuracy_ = cost_accuracy(y_test, ensemble_clf.predict(X_test));
+
+    imp_percentage = round((ensemble_clf_accuracy_ - DummyClassifier_mean) / DummyClassifier_mean, 4);
+    logger.info(f'DummyClassifier accuracy : {DummyClassifier_mean}');
+    logger.info(f'GridSearchCV RandomForestClassifier accuracy : {ensemble_clf_accuracy_}');
+    logger.info(f'The improvement over the DummyClassifier is : {imp_percentage}');
+
+    # TODO: DONE; 012; One-hot encoder; Label Encoder; Binary Encoder;
+
+    baby_names = ['Ava', 'Lily', 'Noah', 'Jacob', 'Mia', 'Sophia'];
+    X_train_list = [ np.random.choice(baby_names) for i in range(40) ];
+    X_test_list = [ np.random.choice(baby_names) for i in range(6) ];
+
+    bb_labelencoder = preprocessing.LabelEncoder();
+    bb_labelencoder.fit(X_train_list);
+    bb_encoded = bb_labelencoder.transform(X_test_list);
+
+    bb_onehotencoder = preprocessing.OneHotEncoder(sparse=False);
+    bb_encoded = bb_encoded.reshape(len(bb_encoded), 1);
+    bb_onehot = bb_onehotencoder.fit_transform(bb_encoded);
+
+    for i, v in enumerate(X_test_list):
+        logger.info(f'Actual : {v} \t | LabelEncoded : {bb_encoded[i][0]} \t | OneHot : {bb_onehot[i]}');
+
+    # TODO: DONE; 013; Feature Extraction from image and text;
+
+    corpus = [  'This is the first document.',
+                'This document is the second document.',
+                'And this is the third one.',
+                'Is this the first document?', ]
+
+    vectorizer = CountVectorizer();
+    X = vectorizer.fit_transform(corpus);
+
+    cntvector_out = pd.DataFrame(X.toarray(), columns=vectorizer.get_feature_names());
+
+    for i, v in enumerate(corpus):
+        logger.info(f'Input text : {v}');
+        logger.info(f'Output counter vector : {v}');
+        logger.info(f'{cntvector_out.iloc[i]}');
+
+    # TODO: DONE; 014; Utils for dumping and loading models;
+
+    # Util shuffle;
+    # Util Resample;
 
     # __Placeholder__ --- Process ends
 

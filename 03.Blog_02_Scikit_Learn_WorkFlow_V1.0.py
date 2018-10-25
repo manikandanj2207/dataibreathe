@@ -16,28 +16,27 @@
 # Output from the code;
 # 1. __Placeholder__
 
-# TODO: YTS;
+# TODO: DONE; Complete the blog code
 
 import datetime;
-import csv;
 import logging;
-import os;
 import datetime;
+import os;
+from time import time, sleep;
 
 import numpy as np;
 import pandas as pd;
 
-from time import time, sleep;
+
 
 from sklearn import model_selection;
 from sklearn import metrics;
 from sklearn.metrics import make_scorer;
-from sklearn import preprocessing;
 
+from sklearn import preprocessing;
 from sklearn import datasets;
 
 from sklearn.dummy import DummyClassifier;
-
 from sklearn.decomposition import KernelPCA;
 
 from sklearn.feature_selection import SelectKBest, chi2, f_classif;
@@ -45,7 +44,6 @@ from sklearn.feature_selection import SelectKBest, chi2, f_classif;
 from sklearn.model_selection import train_test_split, cross_val_score, cross_val_predict, GridSearchCV;
 
 from sklearn import linear_model;
-
 from sklearn.svm import SVC;
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier;
 
@@ -70,7 +68,6 @@ import seaborn as sns;
 # matplotlib.rcParams['font.size'] = 9.5;
 
 matplotlib.rcParams['font.family'] = 'fantasy';
-
 matplotlib.rcParams['font.weight'] = 3;
 matplotlib.rcParams['font.size'] = 10;
 
@@ -228,10 +225,10 @@ def main(logger=None):
                                                         random_state=111,
                                                         shuffle=True);
 
-    logger.info(f'{X_train.shape} {type(X_train)} {X_train.columns}');
-    logger.info(f'{X_test.shape}');
-    logger.info(f'{y_train.shape}');
-    logger.info(f'{y_test.shape}');
+    logger.info(f'X_train.shape : {X_train.shape}');
+    logger.info(f'X_test.shape  : {X_test.shape}');
+    logger.info(f'Y_train.shape : {y_train.shape}');
+    logger.info(f'Y_test.shape  : {y_test.shape}');
 
     # TODO: DONE; 002; Dummy Classifier ;
 

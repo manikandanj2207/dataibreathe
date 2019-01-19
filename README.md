@@ -14,3 +14,9 @@ Codes:
 1. 05_Blog_03_ChatBot_Actions / weather.py
 2. 05.Blog_03_ChatBot_Run.py
 3. 05.Blog_03_ChatBot_Trainer.py
+
+Data streams and incremental machine learning in python
+
+Codes:
+1. 06.Blog_04_KafkaProducer_Code_V1.0.py
+2. 06.Blog_04_KafkaConsumer_Code_V2.0.py

@@ -20,3 +20,8 @@ Data streams and incremental machine learning in python
 Codes:
 1. 06.Blog_04_KafkaProducer_Code_V1.0.py
 2. 06.Blog_04_KafkaConsumer_Code_V2.0.py
+
+Pandas Tips and Tricks
+
+Codes:
+1. 07.Blog_05_Pandas_Tips_and_Tricks.py
